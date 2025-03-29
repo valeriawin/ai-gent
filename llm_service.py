@@ -1,4 +1,6 @@
+from langchain.agents import initialize_agent, AgentType
 from langchain_ollama import OllamaLLM
+from langchain_core.tools import Tool
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.chat_history import BaseChatMessageHistory
@@ -28,13 +30,30 @@ class LLMService:
         self.llm = OllamaLLM(model=model_name)
         self.chat_history = InMemoryChatMessageHistory()
 
-        # create prompt template with message history
-        prompt = ChatPromptTemplate.from_messages([
+        def search_tool(query):
+            return f"Search results for: {query}"
+
+        tools = [
+            Tool(
+                name="search",
+                func=search_tool,
+                description="useful for searching information"
+            )
+        ]
+
+        self.agent_executor = initialize_agent(
+            tools,
+            self.llm,
+            agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+            verbose=True
+        )
+
+        chat_prompt = ChatPromptTemplate.from_messages([
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}")
         ])
 
-        chain = prompt | self.llm
+        chain = chat_prompt | self.llm
 
         self.conversation = RunnableWithMessageHistory(
             chain,
@@ -44,6 +63,9 @@ class LLMService:
         )
 
     def get_response(self, user_input):
+        if any(keyword in user_input.lower() for keyword in ["search", "find", "look up"]):
+            return self.agent_executor.invoke({"input": user_input})
+
         response = self.conversation.invoke(
             {"input": user_input},
             config={"configurable": {"session_id": "default"}}
