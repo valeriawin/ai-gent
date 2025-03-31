@@ -28,21 +28,27 @@ class InMemoryChatMessageHistory(BaseChatMessageHistory):
 
 class LLMService:
     def __init__(self, model_name="llama3.2"):
-        self.llm = OllamaLLM(model=model_name)
+        self.llm = OllamaLLM(
+            model=model_name,
+            temperature=0.2,   # lower temperature for more deliberate responses
+            num_ctx=4096,      # larger context window for more comprehensive reasoning
+            num_predict=1024,  # allow for longer responses
+            repeat_penalty=1.1 # discourage repetitive actions
+        )
         self.chat_history = InMemoryChatMessageHistory()
-
-        search = DuckDuckGoSearchRun()
-
-        self.has_searched = False
+        self.has_searched_times = 0
 
         @tool
-        def single_search(query: str) -> str:
-            if self.has_searched:
-                return "You have already searched once for this query. Please analyze the data you have."
-            self.has_searched = True
+        def limited_search(query: str) -> str:
+            """Search the web for information. Can only be used once per query."""
+            if self.has_searched_times > 2:
+                return "You have already searched 3 times for this query. Please analyze the data you have."
+            self.has_searched_times += 1
+            search = DuckDuckGoSearchRun()
+
             return search.run(query)
 
-        tools = [single_search]
+        tools = [limited_search]
 
         self.agent_executor = initialize_agent(
             tools,
@@ -50,7 +56,7 @@ class LLMService:
             agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
             verbose=True,
             handle_parsing_errors=True,
-            max_iterations=1,
+            max_iterations=5,
             return_intermediate_steps=True
         )
 
@@ -69,7 +75,7 @@ class LLMService:
         )
 
     def get_response(self, user_input):
-        self.has_searched = False
+        self.has_searched_times = 0
 
         if any(keyword in user_input.lower() for keyword in ["search", "find", "look up"]):
             agent_result = self.agent_executor.invoke({"input": user_input})
@@ -79,7 +85,7 @@ class LLMService:
                 search_results = ""
                 if "intermediate_steps" in agent_result:
                     for step in agent_result["intermediate_steps"]:
-                        if step[0].tool == "single_search":
+                        if step[0].tool == "limited_search":
                             search_results = step[1]
 
                 # now ask the LLM to analyze these results and provide a proper response
@@ -95,13 +101,16 @@ Your complete analysis and response:"""
                 else:
                     return "I tried to search but couldn't find relevant information. Please try again with a more specific query."
 
-            return agent_result
+            return agent_result.get("output") or agent_result
 
         response = self.conversation.invoke(
             {"input": user_input},
             config={"configurable": {"session_id": "default"}}
         )
-        return response
+        if isinstance(response, dict):
+            return response.get("output") or response
+        else:
+            return response
 
     def reset_memory(self):
         self.chat_history.clear()
