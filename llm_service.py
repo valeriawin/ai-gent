@@ -41,9 +41,9 @@ class LLMService:
 
         @tool
         def limited_search(query: str) -> str:
-            """Search the web for information. Can only be used 3 times per query."""
-            if self.has_searched_times >= 3:
-                return "You have already searched 3 times for this query. Please analyze the data you have."
+            """Search the web for information. Can only be used 2 times per query."""
+            if self.has_searched_times >= 2:
+                return "You have already searched 2 times for this query. Please analyze the data you have."
             self.has_searched_times += 1
             search = DuckDuckGoSearchRun()
 
@@ -67,7 +67,7 @@ class LLMService:
         self.agent_executor = initialize_agent(
             tools,
             self.llm,
-            agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+            agent=AgentType.CHAT_ZERO_SHOT_REACT_DESCRIPTION,
             verbose=True,
             handle_parsing_errors=True,
             max_iterations=5,
@@ -90,7 +90,6 @@ class LLMService:
 
     def get_response(self, user_input):
         self.has_searched_times = 0
-        self.has_used_shell_times = 0
 
         if any(keyword in user_input.lower() for keyword in ["search", "find", "look up", "run", "execute", "shell"]):
             agent_result = self.agent_executor.invoke({"input": user_input})
@@ -109,7 +108,7 @@ class LLMService:
                 # now ask the LLM to analyze these results and provide a proper response
                 if search_results or shell_results:
                     prompt = f"""Based on the following results for "{user_input}", 
-please provide a helpful and complete response:
+please analyze and write a helpful and short response:
 
 """
                     if search_results:
@@ -122,7 +121,7 @@ please provide a helpful and complete response:
 {shell_results}
 
 """
-                    prompt += "Your complete analysis and response:"
+                    prompt += "Concise response:"
                     return self.llm.invoke(prompt)
                 else:
                     return "I tried to search or run commands but couldn't find relevant information. Please try again with a more specific query."
