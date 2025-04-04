@@ -1,11 +1,12 @@
-# LLM Chat Interface
+# AI Agent with Web Interface
 
-A simple web interface for interacting with local LLM models via Ollama and FastAPI.
+A simple web interface for interacting with agentic LLM via Ollama and FastAPI.
 
 ## Features
 
 - Clean, minimalist web interface
 - Conversation memory between interactions
+- DuckDuckGo search tool and Shell executor
 - Integration with Ollama for local LLM inference
 - FastAPI backend for performance and ease of use
 
@@ -13,7 +14,7 @@ A simple web interface for interacting with local LLM models via Ollama and Fast
 
 - Python 3.8+
 - Ollama installed with the llama3.2 model
-- Required Python packages: fastapi, uvicorn, langchain, ollama, pydantic
+- Required Python packages: see requirements.txt
 
 ## Installation
 
@@ -27,10 +28,10 @@ A simple web interface for interacting with local LLM models via Ollama and Fast
    ```
    python -m venv ai-agent-env
    source ai-agent-env/bin/activate
-   pip install fastapi uvicorn langchain langchain_community ollama pydantic
+   pip install -r requirements.txt
    ```
 
-3. Make sure Ollama is running with the llama3.2 model installed:
+3. Download Ollama from https://ollama.com/ and make sure Ollama is running with the llama3.2 model installed:
    ```
    ollama pull llama3.2
    ```
